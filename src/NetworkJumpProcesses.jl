@@ -3,6 +3,7 @@ module NetworkJumpProcesses
 using Graphs
 using JumpProcesses
 
+export JumpVertex, JumpEdge
 export ConstantJumpVertex, ConstantJumpEdge
 export VariableJumpVertex, VariableJumpEdge
 export network_jump_set
@@ -11,11 +12,33 @@ export dependency_graph, vartojumps, jumptovars
 abstract type JumpElement end
 abstract type JumpVertex <: JumpElement end
 
+"""
+    ConstantJumpVertex(rate, affect!)
+
+Construct a constant rate jump vertex with rate `rate` and `affect!` methods.
+
+# Arguments
+- `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
+- `affect!::Function`: signature `(vn, v, nghbs, p, t)`
+
+See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
+"""
 Base.@kwdef struct ConstantJumpVertex{T, U} <:JumpVertex
     rate::T # signature (v, nhgbs, p, t) -> Real
     affect!::U # signature (vn, v, nghbs, p, t) -> nothing 
 end
 
+"""
+    VariableJumpVertex(rate, affect!)
+
+Construct a variable rate jump vertex with rate `rate` and `affect!` methods.
+
+# Arguments
+- `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
+- `affect!::Function`: signature `(vn, v, nghbs, p, t) -> nothing`
+
+See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
+"""
 Base.@kwdef struct VariableJumpVertex{T, U} <:JumpVertex
     rate::T # signature (v, nhgbs, p, t) -> Real
     affect!::U # signature (vn, v, nghbs, p, t) -> nothing
@@ -23,11 +46,33 @@ end
 
 abstract type JumpEdge <: JumpElement end
 
+"""
+    ConstantJumpEdge(rate, affect!)
+
+Construct a constant rate jump over an edge with rate `rate` and `affect!` methods.
+
+# Arguments
+- `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
+- `affect!::Function`: signature `(vn, v, nghbs, p, t) -> nothing`
+
+See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
+"""
 Base.@kwdef struct ConstantJumpEdge{T, U} <:JumpEdge
     rate::T # signature (vs, vd, p, t) -> Real
     affect!::U # signature (vsn, vdn, vs, vd, p, t) -> nothing 
 end
 
+"""
+    VariableJumpEdge(rate, affect!)
+
+Construct a variable rate jump over an edge with rate `rate` and `affect!` methods.
+
+# Arguments
+- `rate::Function`: signature `(vs, vd, p, t) -> Real`
+- `affect!::Function`: signature `(vs, vd, nghbs, p, t) -> nothing`
+
+See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
+"""
 Base.@kwdef struct VariableJumpEdge{T, U} <:JumpEdge
     rate::T # signature (vs, vd, p, t) -> Real
     affect!::U # signature (vsn, vdn, vs, vd, nghbs, p, t) -> nothing
@@ -70,6 +115,13 @@ function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge)
     nothing
 end
 
+"""
+    network_jump_set(graph; vertex_reactions::Vector{T}=Vector{JumpVertex}(), edge_reactions::Vector{U}=Vector{JumpEdge}()) where {T <: JumpVertex, U <: JumpEdge}
+
+Construct a `JumpSet` from a `Graph` and a list of `JumpVertex` and `JumpEdge` reactions.
+
+See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJumpVertex`](@ref), [`VariableJumpEdge`](@ref)
+"""
 function network_jump_set(graph;
                           vertex_reactions::Vector{T}=Vector{JumpVertex}(),
                           edge_reactions::Vector{U}=Vector{JumpEdge}()) where {T <: JumpVertex, U <: JumpEdge}
@@ -122,6 +174,14 @@ function vertex_to_edges(graph::AbstractGraph)
     return vte
 end
 
+"""
+    vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
+
+Create a dependency graph that maps the vertex states to the vertex and edge reactions.
+This graph can be used for the `RSSA` and `RSSACR` aggregators.
+
+See also: [`jumptovars`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
+"""
 function vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
     nvs = number_vertex_states
     nvr = nb_vertex_reacs
@@ -149,6 +209,14 @@ function vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
     return dep
 end
 
+"""
+    jumptovars(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
+
+Create a dependency graph that maps the vertex and edge reactions to the vertex states.
+This graph can be used for the `RSSA` and `RSSACR` aggregators.
+
+See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
+"""
 function jumptovars(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
     nvr = nb_vertex_reacs
     ner = nb_edge_reacs
