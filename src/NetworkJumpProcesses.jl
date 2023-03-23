@@ -175,15 +175,15 @@ function vertex_to_edges(graph::AbstractGraph)
 end
 
 """
-    vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
+    vartojumps(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
 
 Create a dependency graph that maps the vertex states to the vertex and edge reactions.
 This graph can be used for the `RSSA` and `RSSACR` aggregators.
 
 See also: [`jumptovars`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
-function vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
-    nvs = number_vertex_states
+function vartojumps(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
+    nvs = nb_vertex_states
     nvr = nb_vertex_reacs
     ner = nb_edge_reacs
     vte = vertex_to_edges(graph)
@@ -210,33 +210,22 @@ function vartojumps(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
 end
 
 """
-    jumptovars(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
+    jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
 
 Create a dependency graph that maps the vertex and edge reactions to the vertex states.
 This graph can be used for the `RSSA` and `RSSACR` aggregators.
 
 See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
-function jumptovars(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
+function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
     nvr = nb_vertex_reacs
     ner = nb_edge_reacs
     nvs = nb_vertex_states
     
     dep = Vector{Vector{Int64}}()
-    if nvr > 0
-        for v in vertices(graph)
-            nhbs = copy(neighbors(graph, v))
-            insert_vertex!(nhbs, v)
-            n_states = nvs*length(nhbs)
-
-            push!(dep, zeros(Int64, n_states))
-            for i in eachindex(nhbs)
-                dep[end][vertex_range(nvs, i)] = vertex_range(nvs, nhbs[i])
-            end
-            for i in 1:nvr-1
-                push!(dep, dep[end])
-            end
-
+    for v in vertices(graph)
+        for _ in 1:nvr
+            push!(dep, vertex_range(nvs, v))
         end
     end
     if ner > 0
@@ -247,8 +236,12 @@ function jumptovars(graph, nb_vertex_states, nb_vertex_reacs, nb_edge_reacs)
             for (i, v) in enumerate((src(e), dst(e)))
                 dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
             end
-            for i in 1:ner-1
-                push!(dep, dep[end])
+            push!(dep, zeros(Int64, n_states))
+            for (i, v) in enumerate((dst(e), src(e)))
+                dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
+            end
+            for _ in 1:ner-1
+                push!(dep, dep[end-1:end]...)
             end
 
         end
