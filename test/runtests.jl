@@ -7,7 +7,7 @@ using Graphs
     # These dynamics should stay stable
     v_reaction1 = ConstantJumpVertex(
         (v, nghbs, p, t) -> 0.0,
-        (vn, v, nghbs, p, t) -> vn .+= 1
+        (v, nghbs, p, t) -> v[1] += 1
     )
 
     g = grid((2,2))
@@ -27,9 +27,9 @@ using Graphs
     # These dynamics should average out
     v_reaction2 = ConstantJumpVertex(
         (v, nghbs, p, t) -> 20.0,
-        (vn, v, nghbs, p, t) -> begin
+        (v, nghbs, p, t) -> begin
             N_inv = 1/(length(nghbs) + 1)
-            vn .= N_inv*(v[1] + sum(nghbs))
+            v[1] = N_inv*(v[1] + sum(x -> x[1], nghbs))
         end
     )
     
@@ -51,9 +51,9 @@ end
     # These dynamics should stay stable
     e_reaction1 = ConstantJumpEdge(
         (vs, vd, p, t) -> 0.0,
-        (vns, vnd, vs, vd, p, t) -> begin
-            vns[1] = vs[1] + 1
-            vnd[1] = vd[1] + 1
+        (vs, vd, p, t) -> begin
+            vs[1] += 1
+            vd[1] += 1
         end
     )
 
@@ -74,10 +74,10 @@ end
     # These dynamics should average out
     e_reaction2 = ConstantJumpEdge(
         (vs, vd, p, t) -> 20.0,
-        (vns, vnd, vs, vd, p, t) -> begin
+        (vs, vd, p, t) -> begin
             avg = (vs[1] + vd[1])/2
-            vns[1] = avg
-            vnd[1] = avg
+            vs[1] = avg
+            vd[1] = avg
         end
     )
     

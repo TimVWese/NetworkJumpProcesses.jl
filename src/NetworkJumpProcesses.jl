@@ -2,6 +2,7 @@ module NetworkJumpProcesses
 
 using Graphs
 using JumpProcesses
+using Logging
 
 export JumpVertex, JumpEdge
 export ConstantJumpVertex, ConstantJumpEdge
@@ -19,7 +20,7 @@ Construct a constant rate jump vertex with rate `rate` and `affect!` methods.
 
 # Arguments
 - `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
-- `affect!::Function`: signature `(vn, v, nghbs, p, t)`
+- `affect!::Function`: signature `(v, nghbs, p, t)`
 
 See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
 """
@@ -35,7 +36,7 @@ Construct a variable rate jump vertex with rate `rate` and `affect!` methods.
 
 # Arguments
 - `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
-- `affect!::Function`: signature `(vn, v, nghbs, p, t) -> nothing`
+- `affect!::Function`: signature `(v, nghbs, p, t) -> nothing`
 
 See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
 """
@@ -52,8 +53,8 @@ abstract type JumpEdge <: JumpElement end
 Construct a constant rate jump over an edge with rate `rate` and `affect!` methods.
 
 # Arguments
-- `rate::Function`: signature `(v, nhgbs, p, t) -> Real`
-- `affect!::Function`: signature `(vn, v, nghbs, p, t) -> nothing`
+- `rate::Function`: signature `(vs, vd, p, t) -> Real`
+- `affect!::Function`: signature `(vs, vd, nghbs, p, t) -> nothing`
 
 See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
 """
@@ -83,34 +84,51 @@ Base.@kwdef struct PreJumpSet
     variable::Vector{VariableRateJump} = Vector{VariableRateJump}()
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex)
+"""
+    vertex_range(n, v)
+
+Returns the range of vertices for a given vertex `v`, given that the number of states is `n`.
+"""
+function vertex_range(n, v)
+    return n*(v-1)+1:n*v
+end
+
+function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex, n=1)
     push!(jumps.constant, ConstantRateJump(
-        (u, p, t) -> vertex.rate(u[v], view(u, neighbors), p, t),
-        (integrator) -> vertex.affect!(view(integrator.u, v), integrator.u[v], view(integrator.u, neighbors), integrator.p, integrator.t),
+        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
+        (integrator) -> vertex.affect!(
+            view(integrator.u, vertex_range(n, v)),
+            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in neighbors],
+            integrator.p, integrator.t
+        ),
     ))
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex)
-    push!(jumps.variable, VariableRateJump(
-        (u, p, t) -> vertex.rate(u[v], view(u, neighbors), p, t),
-        (integrator) -> vertex.affect!(view(integrator.u, v), integrator.u[v], view(integrator.u, neighbors), integrator.p, integrator.t),
+function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex, n=1)
+    push!(jumps.constant, VariableRateJump(
+        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
+        (integrator) -> vertex.affect!(
+            view(integrator.u, vertex_range(n, v)),
+            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in neighbors],
+            integrator.p, integrator.t
+        ),
     ))
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge)
+function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge, n=1)
     push!(jumps.constant, ConstantRateJump(
-        (u, p, t) -> edge.rate(u[vs], u[vd], p, t),
-        (integrator) -> edge.affect!(view(integrator.u, vs), view(integrator.u, vd), integrator.u[vs], integrator.u[vd], integrator.p, integrator.t),
+        (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
+        (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
     ))
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge)
+function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge, n=1)
     push!(jumps.variable, VariableRateJump(
-        (u, p, t) -> edge.rate(u[vs], u[vd], p, t),
-        (integrator) -> edge.affect!(view(integrator.u, vs), view(integrator.u, vd), integrator.u[vs], integrator.u[vd], integrator.p, integrator.t),
+        (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
+        (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
     ))
     nothing
 end
@@ -124,11 +142,13 @@ See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJu
 """
 function network_jump_set(graph;
                           vertex_reactions::Vector{T}=Vector{JumpVertex}(),
-                          edge_reactions::Vector{U}=Vector{JumpEdge}()) where {T <: JumpVertex, U <: JumpEdge}
+                          edge_reactions::Vector{U}=Vector{JumpEdge}(),
+                          nb_states=1) where {T <: JumpVertex, U <: JumpEdge}
 
     jumps = PreJumpSet()
     max_nb = nv(graph)*length(vertex_reactions) + 2*ne(graph)*length(edge_reactions)
     sizehint!(jumps.constant, max_nb)
+    sizehint!(jumps.variable, max_nb)
 
     if length(vertex_reactions) > 0
         for v in vertices(graph)
@@ -151,6 +171,10 @@ function network_jump_set(graph;
     hasConstantJumps = length(jumps.constant) > 0
     hasVariableJumps = length(jumps.variable) > 0
 
+    if hasVariableJumps
+        @warn "The use of variable rate jumps is still in an experimental phase."
+    end
+
     if hasConstantJumps && hasVariableJumps
         return JumpSet(; constant_jumps=jumps.constant, variable_jumps=jumps.variable)
     elseif hasConstantJumps
@@ -162,9 +186,15 @@ function network_jump_set(graph;
     end
 end
 
-vertex_range = (n, v) -> n*(v-1)+1:n*v
-insert_vertex!(vec::AbstractArray, i) = insert!(vec, searchsortedfirst(vec, i), i)
+function insert_vertex!(vec::AbstractArray, i)
+    insert!(vec, searchsortedfirst(vec, i), i)
+end
 
+"""
+    vertex_to_edges(graph::AbstractGraph)
+
+Create a dictionary that maps each vertex to the edges it is connected to.
+"""
 function vertex_to_edges(graph::AbstractGraph)
     vte = Dict([v => [] for v in vertices(graph)]...)
     for (i, e) in enumerate(edges(graph))
