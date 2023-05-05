@@ -144,25 +144,44 @@ See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJu
 function network_jump_set(graph;
                           vertex_reactions::Vector{T}=Vector{JumpVertex}(),
                           edge_reactions::Vector{U}=Vector{JumpEdge}(),
-                          nb_states=1) where {T <: JumpVertex, U <: JumpEdge}
-
+                          nb_states=1
+                          ) where {
+                            T <: Union{JumpVertex, Vector{<:JumpVertex}},
+                            U <: Union{JumpEdge, Vector{<:JumpEdge}}
+                          }
     jumps = PreJumpSet()
     max_nb = nv(graph)*length(vertex_reactions) + 2*ne(graph)*length(edge_reactions)
     sizehint!(jumps.constant, max_nb)
     sizehint!(jumps.variable, max_nb)
 
     if length(vertex_reactions) > 0
+        if isa(vertex_reactions[1], Vector) && length(vertex_reactions) != nv(graph)
+            throw(ArgumentError("vertex_reactions must be a vector of length nv(graph)"))
+        end
+
+        vertex_reactions_for = isa(vertex_reactions[1], Vector) ?
+            v -> vertex_reactions[v] :
+            v -> vertex_reactions
+
         for v in vertices(graph)
             nghbs = neighbors(graph, v)
-            for jump_vertex in vertex_reactions
+            for jump_vertex in vertex_reactions_for(v)
                 push_jump!(jumps, v, nghbs, jump_vertex; n=nb_states)
             end
         end
     end
 
     if length(edge_reactions) > 0
-        for edge in edges(graph)
-            for jump_edge in edge_reactions
+        if isa(edge_reactions[1], Vector) && length(edge_reactions) != ne(graph)
+            throw(ArgumentError("edge_reactions must be a vector of length ne(graph)"))
+        end
+
+        edge_reactions_for = isa(edge_reactions[1], Vector) ?
+            idx -> edge_reactions[idx] :
+            idx -> edge_reactions
+
+        for (idx, edge) in enumerate(edges(graph))
+            for jump_edge in edge_reactions_for(idx)
                 push_jump!(jumps, edge.src, edge.dst, jump_edge; n=nb_states)
                 push_jump!(jumps, edge.dst, edge.src, jump_edge; n=nb_states)
             end
@@ -186,6 +205,58 @@ function network_jump_set(graph;
         return JumpSet()
     end
 end
+
+# function network_jump_set(graph;
+#                           vertex_reactions::Vector{Vector{T}}=Vector{Vector{JumpVertex}}(),
+#                           edge_reactions::Vector{Vector{U}}=Vector{Vector{JumpEdge}}()) where {T <: JumpVertex, U <: JumpEdge}
+#     # Perform an input check
+#     if !(length(vertex_reactions) in (nv(graph), 0))
+#         throw(ArgumentError("The number of vertex reaction vectors must be equal to the number of vertices in the graph"))
+#     end
+#     if !(length(edge_reactions) in (ne(graph), 0))
+#         throw(ArgumentError("The number of edge reaction vectors must be equal to the number of edges in the graph"))
+#     end
+
+#     jumps = PreJumpSet()
+#     max_nb = sum(length, vertex_reactions) + 2*sum(length, edge_reactions)
+#     sizehint!(jumps.constant, max_nb)
+#     sizehint!(jumps.variable, max_nb)
+
+#     if length(vertex_reactions) > 0
+#         for v in vertices(graph)
+#             nghbs = neighbors(graph, v)
+#             for jump_vertex in vertex_reactions[v]
+#                 push_jump!(jumps, v, nghbs, jump_vertex)
+#             end
+#         end
+#     end
+
+#     if length(edge_reactions) > 0
+#         for (idx, edge) in enumerate(edges(graph))
+#             for jump_edge in edge_reactions[idx]
+#                 push_jump!(jumps, edge.src, edge.dst, jump_edge)
+#                 push_jump!(jumps, edge.dst, edge.src, jump_edge)
+#             end
+#         end
+#     end
+
+#     hasConstantJumps = length(jumps.constant) > 0
+#     hasVariableJumps = length(jumps.variable) > 0
+
+#     if hasVariableJumps
+#         @warn "The use of variable rate jumps is still in an experimental phase."
+#     end
+
+#     if hasConstantJumps && hasVariableJumps
+#         return JumpSet(; constant_jumps=jumps.constant, variable_jumps=jumps.variable)
+#     elseif hasConstantJumps
+#         return JumpSet(; constant_jumps=jumps.constant)
+#     elseif hasVariableJumps
+#         return JumpSet(; variable_jumps=jumps.variable)
+#     else
+#         return JumpSet()
+#     end
+# end
 
 function insert_vertex!(vec::AbstractArray, i)
     insert!(vec, searchsortedfirst(vec, i), i)
