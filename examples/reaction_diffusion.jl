@@ -70,8 +70,8 @@ u₀ = zeros(Int64, 3*n)
 dprob = DiscreteProblem(u₀, (0, 100.0), p) 
 jprob = JumpProblem(dprob, Direct(), jset)
 sol = solve(jprob, SSAStepper())
-plot(sol)
 
+# Let's plot the evolution of concentrations A, B and C
 get_concentrations(x::Vector{Int64}) = [
     sum(x[i] for i in 1:3:length(x)),
     sum(x[i] for i in 2:3:length(x)),
@@ -81,3 +81,19 @@ get_concentrations(x::Vector{Int64}) = [
 get_concentrations(x::ODESolution) = reduce(hcat, [get_concentrations(x[t]) for t in eachindex(x)])';
 
 plot(sol.t, get_concentrations(sol))
+
+# Now do the same, but with an aggregator that makes use of dependency graphs
+gg = grid((2, 2))
+
+A_source_reactions = [[A_source, C_creation] for i in 1:4]
+B_source_reactions = [[B_source, C_creation] for i in 1:4]
+C_sink_reactions = [[C_sink, C_creation] for i in 1:4]
+v_reactions = vcat(A_source_reactions, B_source_reactions, C_sink_reactions)
+shuffle!(v_reactions)
+e_reactions = [diffusion(i) for i in 1:3]
+jset = network_jump_set(gg; vertex_reactions=v_reactions, edge_reactions=e_reactions, nb_states=3)
+
+vtj = vartojumps(gg, 2, 3, 3)
+jtv = jumptovars(gg, 2, 3, 3)
+jprob = JumpProblem(dprob, RSSA(), jset; vartojumps_map=vtj, jumptovars_map=jtv)
+sol = solve(jprob, SSAStepper())
