@@ -95,6 +95,40 @@ end
     @test maximum(sol[end]) ≈ minimum(sol[end])
 end
 
+@testset "Multiple state reactions" begin
+    # These dynamics should average out
+    v_reaction = ConstantJumpVertex(
+        (v, nghbs, p, t) -> 20.0,
+        (v, nghbs, p, t) -> begin
+            N_inv = 1/(length(nghbs) + 1)
+            v[1] = N_inv*(v[1] + sum(x -> x[1], nghbs))
+        end
+    )
+
+    e_reaction = ConstantJumpEdge(
+        (vs, vd, p, t) -> 20.0,
+        (vs, vd, p, t) -> begin
+            avg = (vs[2] + vd[2])/2
+            vs[2] = avg
+            vd[2] = avg
+        end
+    )
+    
+    g = complete_graph(6)
+    jset = network_jump_set(g; vertex_reactions=[v_reaction], edge_reactions=[e_reaction], nb_states=2)
+    @test length(jset.constant_jumps) == 36
+    @test length(jset.variable_jumps) == 0
+    @test isnothing(jset.massaction_jump)
+    @test isnothing(jset.regular_jump)
+
+    u0 = Float64.(0:11)
+    dprob = DiscreteProblem(u0, (0., 200.))
+    jprob = JumpProblem(dprob, Direct(), jset)
+    sol = solve(jprob, SSAStepper())
+    @test maximum(sol[end][1:2:end]) ≈ minimum(sol[end][1:2:end])
+    @test maximum(sol[end][2:2:end]) ≈ minimum(sol[end][2:2:end])
+end
+
 @testset "Var to jump map" begin
     g = grid((2, 2))
     

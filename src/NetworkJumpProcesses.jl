@@ -93,7 +93,7 @@ function vertex_range(n, v)
     return n*(v-1)+1:n*v
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex, n=1)
+function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex; n=1)
     push!(jumps.constant, ConstantRateJump(
         (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
         (integrator) -> vertex.affect!(
@@ -105,7 +105,7 @@ function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex,
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex, n=1)
+function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex; n=1)
     push!(jumps.constant, VariableRateJump(
         (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
         (integrator) -> vertex.affect!(
@@ -117,7 +117,7 @@ function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex,
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge, n=1)
+function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge; n=1)
     push!(jumps.constant, ConstantRateJump(
         (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
         (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
@@ -125,7 +125,7 @@ function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge, n=1)
     nothing
 end
 
-function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge, n=1)
+function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge; n=1)
     push!(jumps.variable, VariableRateJump(
         (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
         (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
@@ -137,6 +137,7 @@ end
     network_jump_set(graph; vertex_reactions::Vector{T}=Vector{JumpVertex}(), edge_reactions::Vector{U}=Vector{JumpEdge}()) where {T <: JumpVertex, U <: JumpEdge}
 
 Construct a `JumpSet` from a `Graph` and a list of `JumpVertex` and `JumpEdge` reactions.
+Each vertex has `nb_states` variables associated.
 
 See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJumpVertex`](@ref), [`VariableJumpEdge`](@ref)
 """
@@ -154,7 +155,7 @@ function network_jump_set(graph;
         for v in vertices(graph)
             nghbs = neighbors(graph, v)
             for jump_vertex in vertex_reactions
-                push_jump!(jumps, v, nghbs, jump_vertex)
+                push_jump!(jumps, v, nghbs, jump_vertex; n=nb_states)
             end
         end
     end
@@ -162,8 +163,8 @@ function network_jump_set(graph;
     if length(edge_reactions) > 0
         for edge in edges(graph)
             for jump_edge in edge_reactions
-                push_jump!(jumps, edge.src, edge.dst, jump_edge)
-                push_jump!(jumps, edge.dst, edge.src, jump_edge)
+                push_jump!(jumps, edge.src, edge.dst, jump_edge; n=nb_states)
+                push_jump!(jumps, edge.dst, edge.src, jump_edge; n=nb_states)
             end
         end
     end
