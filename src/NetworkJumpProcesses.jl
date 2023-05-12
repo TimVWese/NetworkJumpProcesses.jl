@@ -134,9 +134,19 @@ function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge; n=1)
 end
 
 """
-    network_jump_set(graph; vertex_reactions::Vector{T}=Vector{JumpVertex}(), edge_reactions::Vector{U}=Vector{JumpEdge}()) where {T <: JumpVertex, U <: JumpEdge}
+    network_jump_set(
+        graph; vertex_reactions::Vector{T}=Vector{JumpVertex}(),
+        edge_reactions::Vector{U}=Vector{JumpEdge}(), nb_states=1
+    ) where {
+        T <: Union{JumpVertex, Vector{<:JumpVertex}},
+        U <: Union{JumpEdge, Vector{<:JumpEdge}}
+    }
 
 Construct a `JumpSet` from a `Graph` and a list of `JumpVertex` and `JumpEdge` reactions.
+`vertex_reactions` and `edge_reactions` can be either an vector of reactions which
+will all be applied to every vertex and edge respectively.
+The other option is a vector of vectors of reactions, where the `i`th vector of reactions will be applied to the `i`th vertex or edge.
+These variables may be mixed.
 Each vertex has `nb_states` variables associated.
 
 See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJumpVertex`](@ref), [`VariableJumpEdge`](@ref)
@@ -224,35 +234,67 @@ function vertex_to_edges(graph::AbstractGraph)
     return vte
 end
 
+function dependency_map_input_preperation(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U) where {
+        T <: Union{Integer, Vector{<:Integer}},
+        U <: Union{Integer, Vector{<:Integer}}
+    }
+    hetero_vertex = isa(nb_vertex_reacs, Vector)
+    hetero_edge = isa(nb_edge_reacs, Vector)
+    if hetero_vertex && length(nb_vertex_reacs) != nv(graph)
+        throw(ArgumentError("nb_vertex_reacs must be a vector of length nv(graph) or an integer"))
+    end
+    if hetero_edge && length(nb_edge_reacs) != ne(graph)
+        throw(ArgumentError("nb_edge_reacs must be a vector of length ne(graph) or an integer"))
+    end
+
+    # Number of vertex reactions
+    nvr = i -> hetero_vertex ? nb_vertex_reacs[i] : nb_vertex_reacs
+    # Number of edge reactions
+    ner = i -> hetero_edge ? nb_edge_reacs[i] : nb_edge_reacs
+
+    return nvr, ner
+end
+
+
 """
-    vartojumps(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
+    vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, nb_vertex_states=1) where {
+        T <: Union{Integer, Vector{<:Integer}},
+        U <: Union{Integer, Vector{<:Integer}}
+    }
 
 Create a dependency graph that maps the vertex states to the vertex and edge reactions.
 This graph can be used for the `RSSA` and `RSSACR` aggregators.
+If all vertices (edges) have the same number of reactions, then `nb_vertex_reacs` (`nb_edge_reacs`)
+can be an integer, equal to that number.
+Otherwise, `nb_vertex_reacs` (`nb_edge_reacs`) must be a vector of length `nv(graph)` (`ne(graph)`)
+, such that `nb_vertex_reacs[v]` (`nb_edge_reacs[e]`) is the number of reactions
+associated with vertex `v` (edge `e`).
 
 See also: [`jumptovars`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
-function vartojumps(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
+function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, nb_vertex_states=1) where {
+        T <: Union{Integer, Vector{<:Integer}},
+        U <: Union{Integer, Vector{<:Integer}}
+    }
+    nvr, ner = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
     nvs = nb_vertex_states
-    nvr = nb_vertex_reacs
-    ner = nb_edge_reacs
     vte = vertex_to_edges(graph)
 
-    tnv = nv(graph)*nvr
+    tnv = sum(v -> nvr(v), 1:nv(graph)) # total number of vertex reactions
     
     dep = Vector{Vector{Int64}}()
     for v in vertices(graph)
         nhbs = copy(neighbors(graph, v))
         insert_vertex!(nhbs, v)
-        n_v_reactions = nvr*length(nhbs)
-        n_reactions = n_v_reactions + ner*(length(nhbs)-1)
+        n_v_reactions = nvr(v)*length(nhbs)
+        n_reactions = n_v_reactions + sum(i -> ner(i), vte[v])
         for _ in 1:nvs
             push!(dep, zeros(Int64, n_reactions))
             for i in eachindex(nhbs)
-                dep[end][vertex_range(nvr, i)] = vertex_range(nvr, nhbs[i])
+                dep[end][vertex_range(nvr(v), i)] = vertex_range(nvr(v), nhbs[i])
             end
             for i in eachindex(vte[v])
-                dep[end][n_v_reactions .+ vertex_range(ner, i)] = tnv .+ vertex_range(ner, vte[v][i])
+                dep[end][n_v_reactions .+ vertex_range(ner(i), i)] = tnv .+ vertex_range(ner(i), vte[v][i])
             end
         end
     end
@@ -268,34 +310,32 @@ This graph can be used for the `RSSA` and `RSSACR` aggregators.
 See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
 function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
-    nvr = nb_vertex_reacs
-    ner = nb_edge_reacs
+    nvr, ner = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
     nvs = nb_vertex_states
     
     dep = Vector{Vector{Int64}}()
+    # Add dependences for the vertex reactions
     for v in vertices(graph)
-        for _ in 1:nvr
+        for _ in 1:nvr(v)
             push!(dep, vertex_range(nvs, v))
         end
     end
-    if ner > 0
-        for e in edges(graph)
+    for (e_idx, e) in enumerate(edges(graph)) 
+        # If there is a reactiopn associated with the edge
+        if ner(e_idx) > 0
             n_states = 2*nvs
-
+            # Add the dependences for source to destination
             push!(dep, zeros(Int64, n_states))
             for (i, v) in enumerate((src(e), dst(e)))
                 dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
             end
-            push!(dep, zeros(Int64, n_states))
-            for (i, v) in enumerate((dst(e), src(e)))
-                dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
+            # Add in the other direction and for all subsequent reactions
+            for _ in 1:2*ner(e_idx)-1
+                push!(dep, dep[end])
             end
-            for _ in 1:ner-1
-                push!(dep, dep[end-1:end]...)
-            end
-
         end
     end
+
     return dep
 end
 end # module NetworkJumpProcesses
