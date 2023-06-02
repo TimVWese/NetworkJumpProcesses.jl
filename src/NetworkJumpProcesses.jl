@@ -26,7 +26,7 @@ See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types
 """
 Base.@kwdef struct ConstantJumpVertex{T, U} <:JumpVertex
     rate::T # signature (v, nhgbs, p, t) -> Real
-    affect!::U # signature (vn, v, nghbs, p, t) -> nothing 
+    affect!::U # signature (v, nghbs, p, t) -> nothing 
 end
 
 """
@@ -42,7 +42,7 @@ See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types
 """
 Base.@kwdef struct VariableJumpVertex{T, U} <:JumpVertex
     rate::T # signature (v, nhgbs, p, t) -> Real
-    affect!::U # signature (vn, v, nghbs, p, t) -> nothing
+    affect!::U # signature (v, nghbs, p, t) -> nothing
 end
 
 abstract type JumpEdge <: JumpElement end
@@ -60,7 +60,7 @@ See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types
 """
 Base.@kwdef struct ConstantJumpEdge{T, U} <:JumpEdge
     rate::T # signature (vs, vd, p, t) -> Real
-    affect!::U # signature (vsn, vdn, vs, vd, p, t) -> nothing 
+    affect!::U # signature (vs, vd, p, t) -> nothing 
 end
 
 """
@@ -76,7 +76,7 @@ See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types
 """
 Base.@kwdef struct VariableJumpEdge{T, U} <:JumpEdge
     rate::T # signature (vs, vd, p, t) -> Real
-    affect!::U # signature (vsn, vdn, vs, vd, nghbs, p, t) -> nothing
+    affect!::U # signature (vs, vd, nghbs, p, t) -> nothing
 end
 
 Base.@kwdef struct PreJumpSet
@@ -145,7 +145,8 @@ end
 Construct a `JumpSet` from a `Graph` and a list of `JumpVertex` and `JumpEdge` reactions.
 `vertex_reactions` and `edge_reactions` can be either an vector of reactions which
 will all be applied to every vertex and edge respectively.
-The other option is a vector of vectors of reactions, where the `i`th vector of reactions will be applied to the `i`th vertex or edge.
+The other option is a vector of vectors of reactions, where the `i`th vector of reactions
+will be applied to the `i`th vertex or edge.
 These variables may be mixed.
 Each vertex has `nb_states` variables associated.
 
@@ -248,9 +249,10 @@ function dependency_map_input_preperation(graph::AbstractGraph, nb_vertex_reacs:
     end
 
     # Number of vertex reactions
-    nvr = i -> hetero_vertex ? nb_vertex_reacs[i] : nb_vertex_reacs
+    nvr = hetero_vertex ? i -> nb_vertex_reacs[i] : _ -> nb_vertex_reacs
     # Number of edge reactions
-    ner = i -> hetero_edge ? nb_edge_reacs[i] : nb_edge_reacs
+    # Factor 2 since each edge goes in both directions
+    ner = hetero_edge ? i -> 2*nb_edge_reacs[i] : _ -> 2*nb_edge_reacs
 
     return nvr, ner
 end
@@ -280,7 +282,7 @@ function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, 
     nvs = nb_vertex_states
     vte = vertex_to_edges(graph)
 
-    tnv = sum(v -> nvr(v), 1:nv(graph)) # total number of vertex reactions
+    tnv = sum(v -> nvr(v), vertices(graph)) # total number of vertex reactions
     
     dep = Vector{Vector{Int64}}()
     for v in vertices(graph)
@@ -321,7 +323,7 @@ function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
         end
     end
     for (e_idx, e) in enumerate(edges(graph)) 
-        # If there is a reactiopn associated with the edge
+        # If there is a reaction associated with the edge
         if ner(e_idx) > 0
             n_states = 2*nvs
             # Add the dependences for source to destination
@@ -330,7 +332,7 @@ function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
                 dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
             end
             # Add in the other direction and for all subsequent reactions
-            for _ in 1:2*ner(e_idx)-1
+            for _ in 1:ner(e_idx)-1
                 push!(dep, dep[end])
             end
         end
