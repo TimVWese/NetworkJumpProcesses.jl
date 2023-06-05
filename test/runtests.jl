@@ -200,6 +200,35 @@ end
             27, 28, 29, 30, 31, 32
         ]
     end
+
+    # Heterogeneous input
+    @test_throws ArgumentError vartojumps(g, [1, 2], 0)
+    @test_throws ArgumentError vartojumps(g, 1, [0, 1])
+
+    vtj = vartojumps(g, [1, 2, 1, 2], 0)
+    @test vtj == [
+        [1, 2, 3, 4], [1, 2, 3, 5, 6],
+        [1, 4, 5, 6], [2, 3, 4, 5, 6],
+    ]
+    vtj = vartojumps(g, [0, 2, 0, 0], 1)
+    @test vtj == [
+        [1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 7, 8],
+        [5, 6, 9, 10], [1, 2, 7, 8, 9, 10],
+    ]
+
+    vtj = vartojumps(g, 1, [0, 1, 2, 3])
+    @test vtj == [
+        [1, 2, 3, 5, 6], [1, 2, 4, 7, 8, 9, 10],
+        [1, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16],
+        [2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    ]
+    vtj = vartojumps(g, [0, 1, 2, 3], [0, 1, 1, 0], 2)
+    for i in 1:2
+        @test vtj[i] == [1, 2, 3, 7, 8] # Node 1
+        @test vtj[i+2] == [1, 4, 5, 6, 9, 10] # Node 2
+        @test vtj[i+4] == [2, 3, 4, 5, 6, 7, 8] # Node 3
+        @test vtj[i+6] == [1, 2, 3, 4, 5, 6, 9, 10] # Node 4
+    end
 end
 
 @testset "Jump to var map" begin

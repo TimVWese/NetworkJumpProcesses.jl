@@ -235,26 +235,62 @@ function vertex_to_edges(graph::AbstractGraph)
     return vte
 end
 
+abstract type ReactionCounter end
+
+struct HomogeneousCounter <: ReactionCounter
+    number::Int
+end
+
+struct HeterogeneousCounter <: ReactionCounter
+    number::Vector{Int}
+    cumulative::Vector{Int}
+end
+
+function ReactionCounter(number::Int)
+    return HomogeneousCounter(number)
+end
+
+function ReactionCounter(number::Vector{Int})
+    return HeterogeneousCounter(number, cumsum(number))
+end
+
+function get_number(counter::HomogeneousCounter, i)
+    return counter.number
+end
+
+function get_number(counter::HeterogeneousCounter, i)
+    return counter.number[i]
+end
+
+function get_cumulative(counter::HomogeneousCounter, i)
+    return counter.number*i
+end
+
+function get_cumulative(counter::HeterogeneousCounter, i)
+    return counter.cumulative[i]
+end
+
+function get_range(counter::HomogeneousCounter, i)
+    return (i-1)*counter.number+1:i*counter.number
+end
+
+function get_range(counter::HeterogeneousCounter, i)
+    return counter.cumulative[i]-counter.number[i]+1:counter.cumulative[i]
+end
+
 function dependency_map_input_preperation(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U) where {
         T <: Union{Integer, Vector{<:Integer}},
         U <: Union{Integer, Vector{<:Integer}}
     }
-    hetero_vertex = isa(nb_vertex_reacs, Vector)
-    hetero_edge = isa(nb_edge_reacs, Vector)
-    if hetero_vertex && length(nb_vertex_reacs) != nv(graph)
+    if isa(nb_vertex_reacs, Vector) && length(nb_vertex_reacs) != nv(graph)
         throw(ArgumentError("nb_vertex_reacs must be a vector of length nv(graph) or an integer"))
     end
-    if hetero_edge && length(nb_edge_reacs) != ne(graph)
+    if isa(nb_edge_reacs, Vector) && length(nb_edge_reacs) != ne(graph)
         throw(ArgumentError("nb_edge_reacs must be a vector of length ne(graph) or an integer"))
     end
 
-    # Number of vertex reactions
-    nvr = hetero_vertex ? i -> nb_vertex_reacs[i] : _ -> nb_vertex_reacs
-    # Number of edge reactions
-    # Factor 2 since each edge goes in both directions
-    ner = hetero_edge ? i -> 2*nb_edge_reacs[i] : _ -> 2*nb_edge_reacs
-
-    return nvr, ner
+    # Double the edges, since they work in two directions
+    return ReactionCounter(nb_vertex_reacs), ReactionCounter(2*nb_edge_reacs)
 end
 
 
@@ -278,26 +314,31 @@ function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, 
         T <: Union{Integer, Vector{<:Integer}},
         U <: Union{Integer, Vector{<:Integer}}
     }
-    nvr, ner = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
-    nvs = nb_vertex_states
-    vte = vertex_to_edges(graph)
+    vertex_counter, edge_counter = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
+    vert_to_edge = vertex_to_edges(graph)
 
-    tnv = sum(v -> nvr(v), vertices(graph)) # total number of vertex reactions
+    tot_nb_vert = get_cumulative(vertex_counter, nv(graph)) # total number of vertex reactions
     
     dep = Vector{Vector{Int64}}()
     for v in vertices(graph)
         nhbs = copy(neighbors(graph, v))
         insert_vertex!(nhbs, v)
-        n_v_reactions = nvr(v)*length(nhbs)
-        n_reactions = n_v_reactions + sum(i -> ner(i), vte[v])
-        for _ in 1:nvs
-            push!(dep, zeros(Int64, n_reactions))
-            for i in eachindex(nhbs)
-                dep[end][vertex_range(nvr(v), i)] = vertex_range(nvr(v), nhbs[i])
-            end
-            for i in eachindex(vte[v])
-                dep[end][n_v_reactions .+ vertex_range(ner(i), i)] = tnv .+ vertex_range(ner(i), vte[v][i])
-            end
+        nb_vert_reacs = sum(i -> get_number(vertex_counter, i), nhbs)
+        nb_reactions = nb_vert_reacs + sum(i -> get_number(edge_counter, i), vert_to_edge[v])
+        push!(dep, zeros(Int64, nb_reactions))
+        current_index = 1
+        for i in eachindex(nhbs)
+            next_index = current_index + get_number(vertex_counter, nhbs[i])
+            dep[end][current_index:next_index-1] = get_range(vertex_counter, nhbs[i])
+            current_index = next_index
+        end
+        for i in eachindex(vert_to_edge[v])
+            next_index = current_index + get_number(edge_counter, vert_to_edge[v][i])
+            dep[end][current_index:next_index-1] = tot_nb_vert .+ get_range(edge_counter, vert_to_edge[v][i])
+            current_index = next_index
+        end
+        for _ in 2:nb_vertex_states
+            push!(dep, dep[end])
         end
     end
     return dep
@@ -312,27 +353,26 @@ This graph can be used for the `RSSA` and `RSSACR` aggregators.
 See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
 function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
-    nvr, ner = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
-    nvs = nb_vertex_states
+    vertex_counter, edge_counter = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
     
     dep = Vector{Vector{Int64}}()
     # Add dependences for the vertex reactions
     for v in vertices(graph)
-        for _ in 1:nvr(v)
-            push!(dep, vertex_range(nvs, v))
+        for _ in 1:get_number(vertex_counter, v)
+            push!(dep, vertex_range(nb_vertex_states, v))
         end
     end
     for (e_idx, e) in enumerate(edges(graph)) 
         # If there is a reaction associated with the edge
-        if ner(e_idx) > 0
-            n_states = 2*nvs
+        if get_number(edge_counter, e_idx) > 0
+            nb_states = 2*nb_vertex_states
             # Add the dependences for source to destination
-            push!(dep, zeros(Int64, n_states))
+            push!(dep, zeros(Int64, nb_states))
             for (i, v) in enumerate((src(e), dst(e)))
-                dep[end][vertex_range(nvs, i)] = vertex_range(nvs, v)
+                dep[end][vertex_range(nb_vertex_states, i)] = vertex_range(nb_vertex_states, v)
             end
             # Add in the other direction and for all subsequent reactions
-            for _ in 1:ner(e_idx)-1
+            for _ in 1:get_number(edge_counter, e_idx)-1
                 push!(dep, dep[end])
             end
         end
