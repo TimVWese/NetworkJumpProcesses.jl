@@ -1,7 +1,7 @@
 name = "NetworkJumpProcesses"
 uuid = "649bebac-265c-4476-84d4-c637f8c713f3"
 authors = ["TimVWese <tim.vanwesemael@ugent.be>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
