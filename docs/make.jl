@@ -21,4 +21,5 @@ makedocs(
 # for more information.
 deploydocs(
     repo = "github.com/TimVWese/NetworkJumpProcesses.jl",
+    versions = ["stable" => "v^", "v#.#"],
 )
