@@ -37,4 +37,3 @@ sol = solve(jprob, SSAStepper())
 
 # Plot the results
 plot(sol.t, [count(sol[i].==1) for i in eachindex(sol.t)])
-
