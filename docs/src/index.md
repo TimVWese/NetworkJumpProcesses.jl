@@ -28,5 +28,6 @@ As this is my first package and it has been developed for a specific use case, i
 
 - Directed graphs are not supported.
 - jump-to-jump dependencies are not supported.
-- coding style and performance-wise improvements are definitly welcome
+- `VariableJumps`` are not tested.
+- Coding style and performance-wise improvements.
 - ... (please let me know!)
