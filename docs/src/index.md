@@ -9,14 +9,22 @@ An interface between [Graphs.jl](https://juliagraphs.org/) and [JumpProcesses.jl
 
 See the [Reference](@ref) for all available functions.
 
-There is more information about installation and use of the package in the [Package Guide](@ref) and hands-on examples in the [Examples](@ref) section.
+There is more information about installation and use of the package in the [Package Guide](@ref) and hands-on examples.
 
 ## Manual outline
+
+Examples:
+
+```@contents
+    "examples/sis.md",
+    "examples/reaction_diffusion.md",
+```
+
+Documentation:
 
 ```@contents
 Pages = [
     "guide.md",
-    "examples.md",
     "reference.md",
 ]
 Depth = 1

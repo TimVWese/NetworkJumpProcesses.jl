@@ -4,7 +4,16 @@ using NetworkJumpProcesses
 makedocs(
     sitename = "NetworkJumpProcesses",
     format = Documenter.HTML(),
-    modules = [NetworkJumpProcesses]
+    modules = [NetworkJumpProcesses],
+    pages = [
+        "Home" => "index.md",
+        "Examples" => Any[
+            "examples/sis.md",
+            "examples/reaction_diffusion.md",
+        ],
+        "Guide" => "guide.md",
+        "Reference" => "reference.md",
+    ],
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
