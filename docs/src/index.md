@@ -16,8 +16,11 @@ There is more information about installation and use of the package in the [Pack
 Examples:
 
 ```@contents
+Pages = [
     "examples/sis.md",
     "examples/reaction_diffusion.md",
+]
+Depth = 1
 ```
 
 Documentation:
