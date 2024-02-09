@@ -102,7 +102,7 @@ p = (
 
 T = 100.0
 u₀ = zeros(Int64, 3*n)
-dprob = DiscreteProblem(u₀, (0., T), p) 
+dprob = DiscreteProblem(u₀, (0., T), p)
 direct_jump_prob = JumpProblem(dprob, Direct(), jset)
 sol = solve(direct_jump_prob, SSAStepper())
 ```
@@ -128,7 +128,7 @@ plot(sol.t, get_concentrations(sol), label=["A" "B" "C"], xlabel="t", ylabel="co
 ## Using dependency graphs
 
 It is also possible to use more performant aggregators that require
-dependency graphs, such as [RSSA]([Title](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs)).
+dependency graphs, such as [RSSA](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs).
 this package provides two functions to generate the dependency graphs.
 Ihey require the underlying graph, the number of reactions per vertex, numer of reactions per edge and the number of states.
 The first two numbers can be either a single integer or an array of integers, depending on wheter the amounts are homogeneous over the vertices and edges or not.
