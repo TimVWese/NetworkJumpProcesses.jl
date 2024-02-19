@@ -1,5 +1,5 @@
 # NetworkJumpProcesses.jl
-[![Build Status](https://github.com/TimVWese/NetworkJumpProcesses.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/TimVWese/NetworkJumpProcesses.jl.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/TimVWese/NetworkJumpProcesses.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/TimVWese/NetworkJumpProcesses.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://timvwese.github.io/NetworkJumpProcesses.jl/dev/)
 
 Julia package to facilitate the construction of JumpProblems on graphs.
