@@ -8,14 +8,14 @@ using Plots: plot
 
 # Healing event (intra vertex jump)
 v_IS = ConstantJumpVertex(
-    (v, nghbs, p, t) -> v[1] == 1 ? p[2] : 0.0,
-    (v, nghbs, p, t) -> v[1] = 0
+    (v, nghbs, p, t) -> v[1] == 1 ? p[2] : 0.0, # rate
+    (v, nghbs, p, t) -> v[1] = 0 # affect!
 )
 
 # Infection event (jump over an edge)
 e_SI = ConstantJumpEdge(
-    (vs, vd, p, t) -> vs[1] == 1 ? p[1] : 0.0,
-    (vs, vd, p, t) -> vd[1] = 1
+    (vs, vd, p, t) -> vs[1] == 1 ? p[1] : 0.0, # rate
+    (vs, vd, p, t) -> vd[1] = 1 # affect!
 )
 
 # Define the (lattice) network and JumpSet

@@ -54,7 +54,7 @@ Construct a constant rate jump over an edge with rate `rate` and `affect!` metho
 
 # Arguments
 - `rate::Function`: signature `(vs, vd, p, t) -> Real`
-- `affect!::Function`: signature `(vs, vd, nghbs, p, t) -> nothing`
+- `affect!::Function`: signature `(vs, vd, p, t) -> nothing`
 
 See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
 """
@@ -70,13 +70,13 @@ Construct a variable rate jump over an edge with rate `rate` and `affect!` metho
 
 # Arguments
 - `rate::Function`: signature `(vs, vd, p, t) -> Real`
-- `affect!::Function`: signature `(vs, vd, nghbs, p, t) -> nothing`
+- `affect!::Function`: signature `(vs, vd, p, t) -> nothing`
 
 See also: [Types of Jumps](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Types-of-Jumps:-Constant-Rate,-Mass-Action,-Variable-Rate-and-Regular)
 """
 Base.@kwdef struct VariableJumpEdge{T, U} <:JumpEdge
     rate::T # signature (vs, vd, p, t) -> Real
-    affect!::U # signature (vs, vd, nghbs, p, t) -> nothing
+    affect!::U # signature (vs, vd, p, t) -> nothing
 end
 
 Base.@kwdef struct PreJumpSet
