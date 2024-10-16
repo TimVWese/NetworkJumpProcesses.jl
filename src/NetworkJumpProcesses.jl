@@ -319,8 +319,8 @@ function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, 
     for v in vertices(graph)
         nhbs = copy(neighbors(graph, v))
         insert_vertex!(nhbs, v)
-        nb_vert_reacs = sum(i -> get_number(vertex_counter, i), nhbs)
-        nb_reactions = nb_vert_reacs + sum(i -> get_number(edge_counter, i), vert_to_edge[v])
+        nb_vert_reacs = sum(i -> get_number(vertex_counter, i), nhbs; init=0)
+        nb_reactions = nb_vert_reacs + sum(i -> get_number(edge_counter, i), vert_to_edge[v]; init=0)
         push!(dep, zeros(Int64, nb_reactions))
         current_index = 1
         for i in eachindex(nhbs)
