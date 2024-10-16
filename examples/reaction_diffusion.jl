@@ -86,12 +86,12 @@ plot(sol.t, get_concentrations(sol), label=["A" "B" "C"], xlabel="t", ylabel="co
 
 # And calculate a mean solution
 function calculate_mean(prob, T, N)
-    mean_SSAS = zeros(nb_T+1, 3)
+    mean_SSAS = zeros(T+1, 3)
     for i in 1:N
         sol = solve(prob, SSAStepper())
-        for t in 0:nb_T
+        for t in 0:T
             mean_SSAS[t+1,:] += get_concentrations(sol(t))./N
-        end 
+        end
     end
     return mean_SSAS
 end

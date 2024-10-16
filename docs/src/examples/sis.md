@@ -35,20 +35,24 @@ The SIS model is defined using the `network_jump_set` function from the `JumpPro
 In this example, we define one vertex reaction, the curing event, and one edge reaction, the infection event.
 Each jump takes two functions, a `rate` and `effect!`.
 In the case of the vertex reaction, the `rate` function takes as input the state `v`, the neighbours `nghbs`, the parameters `p`, and the time `t` and returns the rate of the reaction.
-The `effect!` function takes as input the state `v`, the neighbours `nghbs`, the parameters `p`, and the time `t` and manipulates the state `v` to reflect the effect of the reaction.
+The `affect!` function takes as input the state `v`, the neighbours `nghbs`, the parameters `p`, and the time `t` and manipulates the state `v` to reflect the effect of the reaction.
 The same holds for the edge, except that the functions take as input the source state `vs` and the destination state `vd`, instead of the vertex and its neighbours state.
 
 ```julia
+# Healing event (intra vertex jump)
 v_IS = ConstantJumpVertex(
-    (v, nghbs, p, t) -> v[1] == 1 ? p[2] : 0.0,
-    (v, nghbs, p, t) -> v[1] = 0
+    (v, nghbs, p, t) -> v[1]*p[2], # rate
+    (v, nghbs, p, t) -> v[1] = 0 # affect!
 )
 
+# Infection event (jump over an edge)
 e_SI = ConstantJumpEdge(
-    (vs, vd, p, t) -> vs[1] == 1 ? p[1] : 0.0,
-    (vs, vd, p, t) -> vd[1] = 1
+    (vs, vd, p, t) -> vs[1]*p[1], # rate
+    (vs, vd, p, t) -> vd[1] = 1 # affect!
 )
 ```
+More concretely in the example above a vertex in state `v[1]` equal `0` is susceptible, and equal `1` is infective, and in that case recovers with rate `p[2]`.
+An edge from a infective node `vs[1]==1` to an other one ``vd can infect `vd` with rate `p[1]`.
 
 Having defined the jumps, the jump set can be defined as follows:
 
