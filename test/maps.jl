@@ -100,6 +100,10 @@
         @test vtj[i+4] == [2, 3, 4, 5, 6, 7, 8] # Node 3
         @test vtj[i+6] == [1, 2, 3, 4, 5, 6, 9, 10] # Node 4
     end
+
+    # Special cases
+    vtj = vartojumps(Graph(2), 1, 0, 1)
+    @test vtj == [[1], [2]]
 end
 
 @testitem "Jump to var map" begin

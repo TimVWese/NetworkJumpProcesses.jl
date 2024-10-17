@@ -102,7 +102,6 @@ function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex;
             integrator.p, integrator.t
         ),
     ))
-    nothing
 end
 
 function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex; n=1)
@@ -114,7 +113,6 @@ function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex;
             integrator.p, integrator.t
         ),
     ))
-    nothing
 end
 
 function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge; n=1)
@@ -122,7 +120,6 @@ function push_jump!(jumps::PreJumpSet, vs, vd, edge::ConstantJumpEdge; n=1)
         (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
         (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
     ))
-    nothing
 end
 
 function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge; n=1)
@@ -130,7 +127,6 @@ function push_jump!(jumps::PreJumpSet, vs, vd, edge::VariableJumpEdge; n=1)
         (u, p, t) -> edge.rate(u[vertex_range(n, vs)], u[vertex_range(n, vd)], p, t),
         (integrator) -> edge.affect!(view(integrator.u, vertex_range(n, vs)), view(integrator.u, vertex_range(n, vd)), integrator.p, integrator.t),
     ))
-    nothing
 end
 
 """
@@ -142,7 +138,7 @@ end
         U <: Union{JumpEdge, Vector{<:JumpEdge}}
     }
 
-Construct a `JumpSet` from a `Graph` and a list of `JumpVertex` and `JumpEdge` reactions.
+Construct a `JumpSet` from a `graph` and a list of `JumpVertex` and `JumpEdge` reactions.
 `vertex_reactions` and `edge_reactions` can be either an vector of reactions which
 will all be applied to every vertex and edge respectively.
 The other option is a vector of vectors of reactions, where the `i`th vector of reactions
@@ -152,7 +148,7 @@ Each vertex has `nb_states` variables associated.
 
 See also: [`ConstantJumpVertex`](@ref), [`ConstantJumpEdge`](@ref), [`VariableJumpVertex`](@ref), [`VariableJumpEdge`](@ref)
 """
-function network_jump_set(graph;
+function network_jump_set(graph::AbstractGraph;
                           vertex_reactions::Vector{T}=Vector{JumpVertex}(),
                           edge_reactions::Vector{U}=Vector{JumpEdge}(),
                           nb_states=1
@@ -318,13 +314,13 @@ function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, 
     vert_to_edge = vertex_to_edges(graph)
 
     tot_nb_vert = get_cumulative(vertex_counter, nv(graph)) # total number of vertex reactions
-    
+
     dep = Vector{Vector{Int64}}()
     for v in vertices(graph)
         nhbs = copy(neighbors(graph, v))
         insert_vertex!(nhbs, v)
-        nb_vert_reacs = sum(i -> get_number(vertex_counter, i), nhbs)
-        nb_reactions = nb_vert_reacs + sum(i -> get_number(edge_counter, i), vert_to_edge[v])
+        nb_vert_reacs = sum(i -> get_number(vertex_counter, i), nhbs; init=0)
+        nb_reactions = nb_vert_reacs + sum(i -> get_number(edge_counter, i), vert_to_edge[v]; init=0)
         push!(dep, zeros(Int64, nb_reactions))
         current_index = 1
         for i in eachindex(nhbs)
@@ -354,7 +350,7 @@ See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`]
 """
 function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
     vertex_counter, edge_counter = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
-    
+
     dep = Vector{Vector{Int64}}()
     # Add dependences for the vertex reactions
     for v in vertices(graph)
@@ -362,7 +358,7 @@ function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
             push!(dep, vertex_range(nb_vertex_states, v))
         end
     end
-    for (e_idx, e) in enumerate(edges(graph)) 
+    for (e_idx, e) in enumerate(edges(graph))
         # If there is a reaction associated with the edge
         if get_number(edge_counter, e_idx) > 0
             nb_states = 2*nb_vertex_states
