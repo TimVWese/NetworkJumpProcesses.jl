@@ -8,7 +8,7 @@ export JumpVertex, JumpEdge
 export ConstantJumpVertex, ConstantJumpEdge
 export VariableJumpVertex, VariableJumpEdge
 export network_jump_set
-export dependency_graph, vartojumps, jumptovars
+export vartojumps, jumptovars
 
 abstract type JumpElement end
 abstract type JumpVertex <: JumpElement end
