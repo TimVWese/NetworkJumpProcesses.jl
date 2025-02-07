@@ -175,4 +175,15 @@ end
     for j in 1:6
         @test jtv[26+j] == [7, 8, 9, 10, 11, 12]
     end
+
+    # more difficult graph, pentagon with one extra edge
+    g = grid((5,), periodic=true)
+    add_edge!(g, 1, 3)
+    jtv = jumptovars(g, 1, 1, 1)
+    @test jtv == [
+        [1], [2], [3], [4], [5],
+        [1, 2], [1, 2], [1, 3], [1, 3], [1, 5], [1, 5],
+        [2, 3], [2, 3], [3, 4], [3, 4], [4, 5], [4, 5],
+    ]
+    vtj = vartojumps(g, 1, 1, 1)
 end
