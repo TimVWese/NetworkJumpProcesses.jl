@@ -93,23 +93,23 @@ function vertex_range(n, v)
     return n*(v-1)+1:n*v
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::ConstantJumpVertex; n=1)
+function push_jump!(jumps::PreJumpSet, v, nghbs, vertex::ConstantJumpVertex; n=1)
     push!(jumps.constant, ConstantRateJump(
-        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
+        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in nghbs], p, t),
         (integrator) -> vertex.affect!(
             view(integrator.u, vertex_range(n, v)),
-            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in neighbors],
+            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in nghbs],
             integrator.p, integrator.t
         ),
     ))
 end
 
-function push_jump!(jumps::PreJumpSet, v, neighbors, vertex::VariableJumpVertex; n=1)
-    push!(jumps.constant, VariableRateJump(
-        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in neighbors], p, t),
+function push_jump!(jumps::PreJumpSet, v, nghbs, vertex::VariableJumpVertex; n=1)
+    push!(jumps.variable, VariableRateJump(
+        (u, p, t) -> vertex.rate(u[vertex_range(n, v)], [view(u, vertex_range(n, nbhr)) for nbhr in nghbs], p, t),
         (integrator) -> vertex.affect!(
             view(integrator.u, vertex_range(n, v)),
-            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in neighbors],
+            [view(integrator.u, vertex_range(n, nbhr)) for nbhr in nghbs],
             integrator.p, integrator.t
         ),
     ))
@@ -223,7 +223,7 @@ end
 Create a dictionary that maps each vertex to the edges it is connected to.
 """
 function vertex_to_edges(graph::AbstractGraph)
-    vte = Dict([v => [] for v in vertices(graph)]...)
+    vte = Dict(v => Int[] for v in vertices(graph))
     for (i, e) in enumerate(edges(graph))
         push!(vte[src(e)], i)
         push!(vte[dst(e)], i)
@@ -274,7 +274,7 @@ function get_range(counter::HeterogeneousCounter, i)
     return counter.cumulative[i]-counter.number[i]+1:counter.cumulative[i]
 end
 
-function dependency_map_input_preperation(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U) where {
+function dependency_map_input_preparation(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U) where {
         T <: Union{Integer, Vector{<:Integer}},
         U <: Union{Integer, Vector{<:Integer}}
     }
@@ -310,7 +310,7 @@ function vartojumps(graph::AbstractGraph, nb_vertex_reacs::T, nb_edge_reacs::U, 
         T <: Union{Integer, Vector{<:Integer}},
         U <: Union{Integer, Vector{<:Integer}}
     }
-    vertex_counter, edge_counter = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
+    vertex_counter, edge_counter = dependency_map_input_preparation(graph, nb_vertex_reacs, nb_edge_reacs)
     vert_to_edge = vertex_to_edges(graph)
 
     tot_nb_vert = get_cumulative(vertex_counter, nv(graph)) # total number of vertex reactions
@@ -349,7 +349,7 @@ This graph can be used for the `RSSA` and `RSSACR` aggregators.
 See also: [`vartojumps`](@ref), [`Jump Aggregators Requiring Dependency Graphs`](https://docs.sciml.ai/JumpProcesses/stable/jump_types/#Jump-Aggregators-Requiring-Dependency-Graphs) 
 """
 function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
-    vertex_counter, edge_counter = dependency_map_input_preperation(graph, nb_vertex_reacs, nb_edge_reacs)
+    vertex_counter, edge_counter = dependency_map_input_preparation(graph, nb_vertex_reacs, nb_edge_reacs)
 
     dep = Vector{Vector{Int64}}()
     # Add dependences for the vertex reactions
@@ -375,5 +375,25 @@ function jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
     end
 
     return dep
+end
+
+"""
+    dependency_graph(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
+
+Convenience function that returns both dependency maps as a tuple
+`(vartojumps(...), jumptovars(...))`, ready to be passed to a `JumpProblem` as
+`vartojumps_map` and `jumptovars_map` for the `RSSA` and `RSSACR` aggregators.
+
+The arguments are forwarded to [`vartojumps`](@ref) and [`jumptovars`](@ref); see
+those functions for a description of `nb_vertex_reacs`, `nb_edge_reacs` and
+`nb_vertex_states`.
+
+See also: [`vartojumps`](@ref), [`jumptovars`](@ref)
+"""
+function dependency_graph(graph::AbstractGraph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states=1)
+    return (
+        vartojumps(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states),
+        jumptovars(graph, nb_vertex_reacs, nb_edge_reacs, nb_vertex_states),
+    )
 end
 end # module NetworkJumpProcesses

@@ -175,4 +175,44 @@ end
     for j in 1:6
         @test jtv[26+j] == [7, 8, 9, 10, 11, 12]
     end
+
+    # Heterogeneous input
+    @test_throws ArgumentError jumptovars(g, [1, 2], 0)
+    @test_throws ArgumentError jumptovars(g, 1, [0, 1])
+
+    # Heterogeneous vertex reactions
+    jtv = jumptovars(g, [1, 2, 1, 2], 0)
+    @test jtv == [[1], [2], [2], [3], [4], [4]]
+
+    # Heterogeneous edge reactions
+    jtv = jumptovars(g, 1, [0, 1, 2, 3])
+    @test jtv == [
+        [1], [2], [3], [4],
+        [1, 3], [1, 3],
+        [2, 4], [2, 4], [2, 4], [2, 4],
+        [3, 4], [3, 4], [3, 4], [3, 4], [3, 4], [3, 4],
+    ]
+
+    # Heterogeneous vertices and edges with multiple states
+    jtv = jumptovars(g, [0, 1, 2, 3], [0, 1, 1, 0], 2)
+    @test jtv == [
+        [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [7, 8],
+        [1, 2, 5, 6], [1, 2, 5, 6], [3, 4, 7, 8], [3, 4, 7, 8],
+    ]
+
+    # Special case
+    @test jumptovars(Graph(2), 1, 0, 1) == [[1], [2]]
+end
+
+@testitem "Dependency graph" begin
+    using Graphs
+
+    g = grid((2, 2))
+
+    # dependency_graph bundles vartojumps and jumptovars into a single tuple
+    for args in ((1, 0), (2, 1, 2), ([1, 2, 1, 2], 0), (1, [0, 1, 2, 3]), ([0, 1, 2, 3], [0, 1, 1, 0], 2))
+        vtj, jtv = dependency_graph(g, args...)
+        @test vtj == vartojumps(g, args...)
+        @test jtv == jumptovars(g, args...)
+    end
 end

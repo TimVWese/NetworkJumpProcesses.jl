@@ -5,7 +5,7 @@ An interface between [Graphs.jl](https://juliagraphs.org/) and [JumpProcesses.jl
 ## Package features
 
 - Given jumps defined on edges and vertices, the package constructs a jump process on the (undirected) graph.
-- Construct a `vartojumps_map` and `jumps_tovars_map` to use as dependency graph for a the `RSSA(CR)` aggregator.
+- Construct a `vartojumps_map` and `jumptovars_map` to use as dependency graph for the `RSSA(CR)` aggregator.
 
 See the [Reference](@ref) for all available functions.
 
@@ -39,6 +39,6 @@ As this is my first package and it has been developed for a specific use case, i
 
 - Directed graphs are not supported.
 - jump-to-jump dependencies are not supported.
-- `VariableJumps`` are not tested.
+- `VariableJump`s are supported but should be considered experimental.
 - Coding style and performance-wise improvements.
 - ... (please let me know!)
