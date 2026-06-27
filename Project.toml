@@ -1,7 +1,7 @@
 name = "NetworkJumpProcesses"
 uuid = "649bebac-265c-4476-84d4-c637f8c713f3"
-authors = ["TimVWese <tim.vanwesemael@ugent.be>"]
 version = "0.2.4"
+authors = ["TimVWese <tim.vanwesemael@ugent.be>"]
 
 [deps]
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
@@ -11,12 +11,12 @@ JumpProcesses = "ccbc3e58-028d-4f4c-8cd5-9ae44345cda5"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [compat]
-DifferentialEquations = "^7.7.0"
+DifferentialEquations = "^7.7.0, 8"
 Documenter = "^0.27.0, 1"
 Graphs = "^1.8"
 JumpProcesses = "^9.6.0"
-TestItems = "^0.1"
 TestItemRunner = "^0.2"
+TestItems = "^0.1"
 julia = "^1.7"
 
 [extras]
